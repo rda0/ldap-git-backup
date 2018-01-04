@@ -24,9 +24,7 @@ sub main {
     my $dn = 0;
     my $sort = 0;
     my $sort_prefix = 5;
-    my $exclude_attrs = "";
     my $suffix = "";
-    my $arg_max    = 1048576;
     my $help;
     GetOptions(
         'ldif-cmd=s'    => \$ldif_cmd,
@@ -37,9 +35,7 @@ sub main {
         'dn'            => \$dn,
         'sort'          => \$sort,
         'sort-prefix=s' => \$sort_prefix,
-        'exclude-attrs=s' => \$exclude_attrs,
         'suffix=s'      => \$suffix,
-        'arg-max=s'     => \$arg_max,
         'help'          => \$help,
     );
     pod2usage('-verbose' => 2, '-exit_status' => 0) if $help;
@@ -54,13 +50,8 @@ sub main {
     }
 
     if ((!($sort_prefix =~ m/^\d+\z/)) || ($sort_prefix == 0)) {
-        die("Error: invalid --sort_prefix\n" .
-            "Please only use whole numbers > 0\n");
-    }
-
-    if ((!($arg_max =~ m/^\d+\z/)) || ($arg_max < 1024)) {
-        die("Error: invalid --arg-max\n" .
-            "Please only use whole numbers >= 1024\n");
+        die("Error: invalid --sort_prefix_length\n" .
+            "Please only use whole numbers > 0.\n");
     }
 
     my $ldif_aref = LDAP::Utils::read_ldif($ldif_cmd);
@@ -92,44 +83,13 @@ sub main {
             $filename = $dn . '_' . $filename;
         }
         open(my $fh, '>', "$backup_dir/$filename");
-        if ($exclude_attrs ne "") {
-            my @lines = split /\n/, $ldif;
-            my $n = 0;
-            while (my $l = $lines[$n]) {
-                if ($l =~ m/^$exclude_attrs: /) {
-                    while ($lines[++$n] && $lines[$n] =~ /^ /) {};
-                } else {
-                    print {$fh} $l."\n";
-                    $n++;
-                }
-            }
-            print {$fh} "\n";
-        } else {
-            print {$fh} $ldif;
-        }
+        print {$fh} $ldif;
         close($fh);
         push(@filelist, $filename);
         delete($files_before{$filename});
         $i++;
     }
-    my @filelist_junks;
-    if (@filelist) {
-        my $len = 0;
-        my $j = 0;
-        for my $filename (@filelist) {
-            if (($len + length $filename) <= $arg_max) {
-                push @{ $filelist_junks[$j] }, $filename;
-                $len = $len + length $filename;
-            } else {
-                $j++;
-                push @{ $filelist_junks[$j] }, $filename;
-                $len = length $filename;
-            }
-        }
-    }
-    for my $junk (@filelist_junks) {
-        $repo->command('add', @$junk) if @$junk;
-    }
+    $repo->command('add', @filelist) if @filelist;
     $repo->command('rm', (keys %files_before)) if %files_before;
 
     $repo->command('commit', "--message=$commit_msg", "--date=$commit_date");
@@ -371,29 +331,16 @@ filename exceeds the maximum filename length of the underlying filesystem.
 =item B<--sort>
 
 Prefix the filename with an incremental hexadecimal number padded with zeros.
-This option is useful to backup cn=config with the exact order of entries. It is
-not recommended for regular DITs.
+This option is useful to restore a backup of cn=config.
 
-=item B<--sort-prefix E<lt>prefix_lengthE<gt>>
+=item B<--sort-prefix> E<lt>prefix_lengthE<gt>>
 
 The number of zeros the hexadecimal prefix is padded with when using --sort.
 Default: 5
 
-=item B<--exclude-attrs E<lt>exclude_regexE<gt>>
-
-Exclude all attributes matching the regular expression C<exclude_regex>. The
-regex is effectively enclosed with prefix C<^> and suffix C<: > to only match
-attribute names and results in C<^exclude_regex: >.
-
 =item B<--suffix E<lt>dn_suffixE<gt>>
 
 Replace the DN suffix of the backup with the string C<suffix> in the file name.
-
-=item B<--arg-max E<lt>lenghtE<gt>>
-
-Set the maximal supported argument length. If the length of all resulting
-filenames is greater than C<length>, the files are split up into multiple junks
-and staged using multiple C<git add> operations. Default: 1048576
 
 =item B<--help>
 

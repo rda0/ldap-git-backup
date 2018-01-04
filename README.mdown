@@ -52,8 +52,6 @@ If you want to also have the DN of the entry in the filename, use the option <co
 
 To preserve the exact order of entries in a backup, use the option <code>--sort</code>, which will prefix the filename with an incremental hexadecimal number padded with zeros. This option is useful to backup <code>cn=config</code>. It is not recommended for regular DITs. This option can also be combined with the option <code>--dn</code>. The default padding length of the prefix is 5, which is suitable for correct sorting of up to ~1M entries. You can use the option <code>--sort-prefix</code> to specify a different value.
 
-If you want to exclude some attributes from the backup, use the option <code>--exclude-attrs exclude_regex</code>, where <code>exclude_regex</code> is a regular expression to be matched against the attribute names. This will Exclude all attributes matching the regular expression. The regex is effectively enclosed with prefix <code>^</code> and suffix <code>: </code> to only match attribute names and results in <code>^exclude_regex: </code>.
-
 ## Backup Strategies
 
 The simplest backup strategy would just call <code>ldap-git-backup</code> once per day via cron.  Pick a quiet time for the LDAP directory and add a command like the following to your crontab (e.g., <code>crontab -e</code> or in <code>/etc/cron.d/ldap-git-backup</code>):
